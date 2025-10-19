@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI News Agent</title>
+    <!-- Tailwind CSS via CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- marked.js for Markdown rendering -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <style>
+        /* A little bit of custom CSS for the scrollbar */
+        .chat-box::-webkit-scrollbar {
+            width: 8px;
+        }
+        .chat-box::-webkit-scrollbar-track {
+            background: #f1f1f1;
+        }
+        .chat-box::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 4px;
+        }
+        .chat-box::-webkit-scrollbar-thumb:hover {
+            background: #555;
+        }
+        /* Style for links inside the bot message */
+        .bot-message a {
+            color: #2563eb; /* blue-600 */
+            text-decoration: underline;
+        }
+        .bot-message h1, .bot-message h2, .bot-message h3 {
+            font-size: 1.25em;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+        .bot-message strong {
+            font-weight: 600;
+        }
+        .bot-message hr {
+            margin: 1rem 0;
+            border-color: #e5e7eb; /* gray-200 */
+        }
+    </style>
+</head>
+<body class="h-full bg-gray-100 flex items-center justify-center">
+
+    <div class="flex flex-col w-full max-w-2xl h-full md:h-[90vh] bg-white shadow-2xl rounded-lg">
+        <!-- Header -->
+        <div class="bg-slate-800 text-white p-4 rounded-t-lg">
+            <h1 class="text-2xl font-bold text-center">📰 AI News Agent</h1>
+            <p class="text-center text-sm text-slate-300">Your personal AI-powered news assistant</p>
+        </div>
+
+        <!-- Chat Box -->
+        <div id="chat-box" class="flex-1 p-6 overflow-y-auto chat-box space-y-4">
+            <!-- Initial Bot Message -->
+            <div class="chat-message bot-message">
+                <div class="p-4 bg-gray-200 text-gray-800 rounded-lg max-w-lg">
+                    <p>Hello! How can I help you find the latest news today?</p>
+                </div>
+            </div>
+            <!-- Chat messages will be appended here -->
+        </div>
+
+        <!-- Input Form -->
+        <div class="p-4 border-t border-gray-200">
+            <form id="chat-form" class="flex items-center space-x-2">
+                <input
+                    type="text"
+                    id="user-input"
+                    placeholder="Ask about stock markets, technology, politics..."
+                    autocomplete="off"
+                    required
+                    class="flex-1 w-full px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-full focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                <button
+                    type="submit"
+                    id="send-button"
+                    class="bg-slate-800 text-white p-2 rounded-full hover:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-slate-500 disabled:opacity-50 transition-colors"
+                >
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14M12 5l7 7-7 7" />
+                    </svg>
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener("DOMContentLoaded", () => {
+            const chatForm = document.getElementById("chat-form");
+            const userInput = document.getElementById("user-input");
+            const chatBox = document.getElementById("chat-box");
+            const sendButton = document.getElementById("send-button");
+            
+            // --- NEW: Configuration for the retry logic ---
+            const MAX_RETRIES = 2; // Try the initial request, then retry 2 more times (total 3 attempts)
+            const RETRY_DELAY = 1500; // 1.5 seconds
+
+            chatForm.addEventListener("submit", async (e) => {
+                e.preventDefault();
+                const userMessage = userInput.value.trim();
+                if (!userMessage) return;
+
+                userInput.disabled = true;
+                sendButton.disabled = true;
+
+                addMessage(userMessage, "user");
+                userInput.value = "";
+
+                const thinkingIndicatorId = `thinking-${Date.now()}`;
+                addMessage("Thinking...", "bot", thinkingIndicatorId);
+
+                try {
+                    const data = await fetchWithRetry("/chat", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ message: userMessage }),
+                    }, MAX_RETRIES);
+                    
+                    updateMessage(thinkingIndicatorId, data.response);
+
+                } catch (error) {
+                    console.error("Final Error after retries:", error);
+                    updateMessage(thinkingIndicatorId, "Sorry, I encountered an error that I couldn't resolve. Please try again.");
+                } finally {
+                    userInput.disabled = false;
+                    sendButton.disabled = false;
+                    userInput.focus();
+                }
+            });
+
+            // --- NEW: fetchWithRetry function ---
+            async function fetchWithRetry(url, options, retries) {
+                for (let i = 0; i <= retries; i++) {
+                    try {
+                        const response = await fetch(url, options);
+                        if (!response.ok) {
+                            // If the response is not OK, treat it as an error to trigger a retry
+                            const errorData = await response.json().catch(() => ({ error: `HTTP error! Status: ${response.status}` }));
+                            throw new Error(errorData.error || `HTTP error! Status: ${response.status}`);
+                        }
+                        return await response.json(); // Success
+                    } catch (error) {
+                        console.log(`Attempt ${i + 1} failed: ${error.message}`);
+                        if (i < retries) {
+                            // Wait before the next retry
+                            await new Promise(res => setTimeout(res, RETRY_DELAY));
+                        } else {
+                            // If this was the last retry, re-throw the error
+                            throw error;
+                        }
+                    }
+                }
+            }
+
+
+            function addMessage(text, sender, id = null) {
+                const messageWrapper = document.createElement("div");
+                messageWrapper.className = `chat-message flex ${sender === 'user' ? 'justify-end' : 'justify-start'}`;
+                
+                if (id) {
+                    messageWrapper.id = id;
+                }
+
+                const messageElement = document.createElement("div");
+                const textContent = document.createElement("div");
+                
+                if (sender === 'user') {
+                    messageElement.className = "p-4 bg-blue-600 text-white rounded-lg max-w-lg";
+                    textContent.textContent = text;
+                } else {
+                    messageElement.className = "p-4 bg-gray-200 text-gray-800 rounded-lg max-w-lg";
+                    if (id && text === "Thinking...") {
+                        textContent.innerHTML = `<div class="flex items-center space-x-2"><div class="w-2 h-2 bg-gray-500 rounded-full animate-pulse"></div><div class="w-2 h-2 bg-gray-500 rounded-full animate-pulse [animation-delay:0.2s]"></div><div class="w-2 h-2 bg-gray-500 rounded-full animate-pulse [animation-delay:0.4s]"></div></div>`;
+                    } else {
+                        textContent.innerHTML = marked.parse(text);
+                    }
+                }
+
+                messageElement.appendChild(textContent);
+                messageWrapper.appendChild(messageElement);
+                chatBox.appendChild(messageWrapper);
+                
+                chatBox.scrollTop = chatBox.scrollHeight;
+            }
+
+            function updateMessage(id, newText) {
+                const messageWrapper = document.getElementById(id);
+                if (messageWrapper) {
+                    const textContent = messageWrapper.querySelector("div > div");
+                    textContent.innerHTML = marked.parse(newText);
+                    chatBox.scrollTop = chatBox.scrollHeight;
+                }
+            }
+        });
+    </script>
+</body>
+</html>
+
