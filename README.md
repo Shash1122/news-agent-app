@@ -14,19 +14,22 @@ A Flask-based AI news agent that fetches the latest news using **NewsAPI** and i
 
 ## How to Run
 
-### 1. Clone the repository
+1. **Clone the repository**
 
 ```bash
 git clone [https://github.com/Shash1122/news-agent-app.git](https://github.com/Shash1122/news-agent-app.git)
 cd news-agent-app
-2. Set up environment variables
+```
+---
+2. **Set up environment variables**
 Create a .env file in the project's root directory and add your API keys:
 
 Plaintext
 
 OPENAI_API_KEY="your_google_api_key_here" # Gemini API Key
 NEWS_API_KEY="your_news_api_key_here"
-3. Set up a virtual environment
+
+3. **Set up a virtual environment**
 Create and activate a new virtual environment:
 
 Bash
@@ -39,13 +42,14 @@ source venv/bin/activate
 
 # Activate on Windows
 venv\Scripts\activate
-4. Install dependencies
+
+4. **Install dependencies**
 Install all the required packages using the requirements.txt file:
 
 Bash
 
 pip install -r requirements.txt
-5. Start the app
+5. **Start the app**
 Run the Flask application:
 
 Bash
