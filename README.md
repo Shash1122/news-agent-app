@@ -24,16 +24,13 @@ cd news-agent-app
 2. **Set up environment variables**
 Create a .env file in the project's root directory and add your API keys:
 
-Plaintext
-
+```bash
 OPENAI_API_KEY="your_google_api_key_here" # Gemini API Key
 NEWS_API_KEY="your_news_api_key_here"
-
+```
 3. **Set up a virtual environment**
 Create and activate a new virtual environment:
-
-Bash
-
+```bash
 # Create the environment
 python -m venv venv
 
@@ -42,16 +39,16 @@ source venv/bin/activate
 
 # Activate on Windows
 venv\Scripts\activate
-
+```
 4. **Install dependencies**
 Install all the required packages using the requirements.txt file:
 
-Bash
-
+```bash
 pip install -r requirements.txt
+```
 5. **Start the app**
 Run the Flask application:
 
-Bash
-
+```bash
 python app.py
+```
